@@ -26,13 +26,16 @@ import androidx.room.*
 @Entity
 data class Title constructor(val title: String, @PrimaryKey val id: Int = 0)
 
-/***
- * Very small database that will hold one title
- */
 @Dao
 interface TitleDao {
+
+    /**
+     * Сделали suspend функцию. Теперь Room автоматически выполнит его в фоновом потоке.
+     * Однако это также означает, что вы можете вызывать этот запрос только из сопрограммы.
+     * И - это все, что вам нужно сделать, чтобы использовать сопрограммы в Room. Довольно изящно.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertTitle(title: Title)
+    suspend fun insertTitle(title: Title)
 
     @get:Query("select * from Title where id = 0")
     val titleLiveData: LiveData<Title?>
