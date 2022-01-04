@@ -2,8 +2,6 @@ package com.example.android.kotlincoroutines.main
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.map
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * TitleRepository предоставляет интерфейс для получения заголовка или запроса создания нового.
@@ -30,30 +28,19 @@ class TitleRepository(val network: MainNetwork, val titleDao: TitleDao) {
      * Используем Retrofit и Room, чтобы получить новый заголовок из сети и
      * записать его в базу данных с помощью сопрограмм.
      *
-     * Этот код по-прежнему использует блокирующие вызовы.
-     * Оба вызова execute и insertTitle будут блокировать один из потоков IO(ввода-вывода).
-
-     * Сопрограмма (viewModelScope.launch {} в refreshTitle в MainViewModel), которая вызвала эту функцию,
-     * будет приостановлена до завершения withContext.
-     * withContext возвращает свой результат обратно диспетчеру, который его вызвал Dispatchers.Main
+     * Мы избавились от файла withContext.
+     * Поскольку и Room, и Retrofit предоставляют main-safe suspend функции,
+     * можно безопасно организовать эту асинхронную работу из Dispatchers.Main.
      */
     suspend fun refreshTitle() {
-        withContext(Dispatchers.IO) {
-            val result = try {
-                // Делаем сетевой запрос, используя блокирующий вызов
-                network.fetchNextTitle().execute()
-            } catch (cause: Throwable) {
-                // If the network throws an exception, inform the caller
-                throw TitleRefreshError("Unable to refresh title", cause)
-            }
-
-            if (result.isSuccessful) {
-                // Сохраняем в БД
-                titleDao.insertTitle(Title(result.body()!!))
-            } else {
-                // If it's not successful, inform the callback of the error
-                throw TitleRefreshError("Unable to refresh title", null)
-            }
+        try {
+            // Делаем сетевой запрос, используя блокирующий вызов
+            network.fetchNextTitle()
+            // Сохраняем в БД
+            titleDao.insertTitle(Title(result))
+        } catch (cause: Throwable) {
+            // If the network throws an exception, inform the caller
+            throw TitleRefreshError("Unable to refresh title", cause)
         }
     }
 }
