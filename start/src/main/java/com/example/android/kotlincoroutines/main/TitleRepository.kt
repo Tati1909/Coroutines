@@ -2,7 +2,8 @@ package com.example.android.kotlincoroutines.main
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.map
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * TitleRepository предоставляет интерфейс для получения заголовка или запроса создания нового.
@@ -26,15 +27,34 @@ class TitleRepository(val network: MainNetwork, val titleDao: TitleDao) {
     val title: LiveData<String?> = titleDao.titleLiveData.map { it?.title }
 
     /**
-     * Когда вы закончите с этой кодовой лабораторией, вы обновите ее,
-     * чтобы использовать Retrofit и Room, чтобы получить новый заголовок и
+     * Используем Retrofit и Room, чтобы получить новый заголовок из сети и
      * записать его в базу данных с помощью сопрограмм.
-     * На данный момент он просто потратит 500 миллисекунд, притворившись,
-     * что выполняет работу, а затем продолжит.
+     *
+     * Этот код по-прежнему использует блокирующие вызовы.
+     * Оба вызова execute и insertTitle будут блокировать один из потоков IO(ввода-вывода).
+
+     * Сопрограмма (viewModelScope.launch {} в refreshTitle в MainViewModel), которая вызвала эту функцию,
+     * будет приостановлена до завершения withContext.
+     * withContext возвращает свой результат обратно диспетчеру, который его вызвал Dispatchers.Main
      */
     suspend fun refreshTitle() {
-        // TODO: Refresh from network and write to database
-        delay(500)
+        withContext(Dispatchers.IO) {
+            val result = try {
+                // Делаем сетевой запрос, используя блокирующий вызов
+                network.fetchNextTitle().execute()
+            } catch (cause: Throwable) {
+                // If the network throws an exception, inform the caller
+                throw TitleRefreshError("Unable to refresh title", cause)
+            }
+
+            if (result.isSuccessful) {
+                // Сохраняем в БД
+                titleDao.insertTitle(Title(result.body()!!))
+            } else {
+                // If it's not successful, inform the callback of the error
+                throw TitleRefreshError("Unable to refresh title", null)
+            }
+        }
     }
 }
 
