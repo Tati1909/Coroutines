@@ -20,7 +20,6 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.android.kotlincoroutines.util.BACKGROUND
 import com.example.android.kotlincoroutines.util.singleArgViewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -61,7 +60,7 @@ class MainViewModel(private val repository: TitleRepository) : ViewModel() {
         get() = _snackBar
 
     /**
-     * Update title text via this LiveData
+     * Обновляем текст заголовка через LiveData
      */
     val title = repository.title
 
@@ -107,7 +106,6 @@ class MainViewModel(private val repository: TitleRepository) : ViewModel() {
         // launch a coroutine in viewModelScope
         viewModelScope.launch {
             tapCount++
-            // suspend this coroutine for one second
             delay(1_000)
             // resume in the main dispatcher
             // _snackbar.value can be called directly from main thread
@@ -123,20 +121,24 @@ class MainViewModel(private val repository: TitleRepository) : ViewModel() {
     }
 
     /**
-     * Refresh the title, showing a loading spinner while it refreshes and errors via snackbar.
+     * Обновите заголовок, показывая счетчик загрузки при обновлении и ошибках через снэк-бар.
+     * Заголовок пока не обновляем, просто ждем полсекунды
      */
     fun refreshTitle() {
-        // TODO: Convert refreshTitle to use coroutines
-        _spinner.value = true
-        repository.refreshTitleWithCallbacks(object : TitleRefreshCallback {
-            override fun onCompleted() {
-                _spinner.postValue(false)
-            }
 
-            override fun onError(cause: Throwable) {
-                _snackBar.postValue(cause.message)
-                _spinner.postValue(false)
+        viewModelScope.launch {
+            try {
+                _spinner.value = true
+                repository.refreshTitle()
+            } catch (error: TitleRefreshError) {
+                _snackBar.value = error.message
+            } finally {
+                _spinner.value = false
+                /**
+                 * в блоке finally, мы можем убедиться,
+                 * что счетчик всегда выключен после выполнения запроса.
+                 */
             }
-        })
+        }
     }
 }
