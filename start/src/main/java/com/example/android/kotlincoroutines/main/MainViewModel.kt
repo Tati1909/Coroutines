@@ -21,6 +21,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.android.kotlincoroutines.util.singleArgViewModelFactory
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -121,14 +122,31 @@ class MainViewModel(private val repository: TitleRepository) : ViewModel() {
     }
 
     /**
-     * Обновите заголовок, показывая счетчик, загрузку при обновлении и ошибках через снэк-бар.
+     * Обновите заголовок, показывая счетчик при обновлении и ошибки через снэк-бар.
+     * Абстрагируя логику отображения счетчика загрузки и отображения ошибок,
+     * мы упростили наш фактический код, необходимый для загрузки данных.
      */
     fun refreshTitle() {
 
-        viewModelScope.launch {
+        launchDataLoad {
+            repository.refreshTitle()
+        }
+    }
+
+    /**
+     * Функция высшего порядка
+     * Отображение счетчика или отображение ошибки - это то,
+     * что легко обобщить для любой загрузки данных,
+     * в то время как фактический источник и место назначения данных необходимо указывать каждый раз.
+
+    Чтобы построить эту абстракцию, launchDataLoad принимает аргумент,
+    block который является suspend лямбдой.
+     */
+    private fun launchDataLoad(block: suspend () -> Unit): Job {
+        return viewModelScope.launch {
             try {
                 _spinner.value = true
-                repository.refreshTitle()
+                block()
             } catch (error: TitleRefreshError) {
                 _snackBar.value = error.message
             } finally {
