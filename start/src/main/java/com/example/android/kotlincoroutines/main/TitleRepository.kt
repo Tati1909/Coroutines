@@ -2,6 +2,7 @@ package com.example.android.kotlincoroutines.main
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.map
+import kotlinx.coroutines.withTimeout
 
 /**
  * TitleRepository предоставляет интерфейс для получения заголовка или запроса создания нового.
@@ -35,7 +36,9 @@ class TitleRepository(val network: MainNetwork, val titleDao: TitleDao) {
     suspend fun refreshTitle() {
         try {
             // Делаем сетевой запрос, используя блокирующий вызов
-            network.fetchNextTitle()
+            val result = withTimeout(5_000) {
+                network.fetchNextTitle()
+            }
             // Сохраняем в БД
             titleDao.insertTitle(Title(result))
         } catch (cause: Throwable) {
